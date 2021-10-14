@@ -7,17 +7,17 @@
 void compexch(int *a, int *b)
 {
     if (b < a){
-        a = a ^ b;
-        b = b ^ a;
-        a = a ^ b;
+        int t = *a;
+        *a = *b;
+        *b = t;
     }
 }
 
-void shuffle(int a[], const int size, unsigned int l, unsigned int r)
+void shuffle(int a[], const int size, int l, int r)
 {
-    unsigned int half = (unsigned int) (l + r) / 2;
+    int half = (int) (l + r) / 2;
     int b[size];
-    unsigned int i, j;
+    int i, j;
     for (i = l, j = 0; i <= r; i += 2, j++){
         b[i] = a[l + j];
         b[i + 1] = a[half + j + 1];
@@ -27,11 +27,11 @@ void shuffle(int a[], const int size, unsigned int l, unsigned int r)
 }
 
 
-void unshuffle(int a[], const int size, unsigned int l, unsigned int r)
+void unshuffle(int a[], const int size, int l, int r)
 {
-    unsigned int half = (unsigned int) (l + r) / 2;
+    int half = (int) (l + r) / 2;
     int b[size];
-    unsigned int i, j;
+    int i, j;
     for (i = l, j = 0; i <= r; i += 2, j++){
         b[l + j] = a[i];
         b[half + j + 1] = a[i + 1];
@@ -40,10 +40,26 @@ void unshuffle(int a[], const int size, unsigned int l, unsigned int r)
         a[i] = b[i];
 }
 
+void OddEvenMergeSort(int a[], const int size,  int l, int r)
+{
+    if (r == l + 1) compexch(&a[l], &a[r]); // мы дошли до подмассива размера 2 - теперь просто сравним элементы
+    if (r < l + 2) return; //дошли до подмассива размера 1 - выходим, такой подмассив априори отсортирован
+    unshuffle(a, size, l, r); //делим подмассив на две части
+    int half = (int) (l + r) / 2;
+    OddEvenMergeSort(a, size,  l, half);
+    OddEvenMergeSort(a, size, half + 1, r); //вызываемся рекурсивно для половинок
+    shuffle(a, size, l, r); //сливаем части
+    for (int i = l + 1; i < r; i += 2)
+        compexch(&a[i], &a[i + 1]);
+    int halfSize = (r - l + 1) / 2 - 1;
+    for (int i = l + 1; i + halfSize < r; i++)
+        compexch(&a[i], &a[i + halfSize]);
+}
+
 
 
 int main(int argc, char *argv[]) {
-    srand(time(NULL));
+    /* srand(time(NULL));
     int max_threads;
 
     if (argc == 1) {
@@ -68,6 +84,17 @@ int main(int argc, char *argv[]) {
         printf("if MAX_THREADS is negative value, then the number of threads is unlimited\n");
         return 1;
     }
-
+*/
+    int a[] = {5, 4, 9, 15, 16, 18};
+    int size = 6;
+    for(int i = 0; i < size; i++)
+        printf("%d ", a[i]);
+    printf("\n");
+    printf("\n");
+    OddEvenMergeSort(a, size, 0, size - 1);
+    for(int i = 0; i < size; i++)
+        printf("%d ", a[i]);
+    printf("\n");
+    return 0;
 }
 
