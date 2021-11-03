@@ -8,23 +8,26 @@
 #include <pthread.h>
 
 typedef struct queue queue;
+
 typedef struct list list;
 
-struct queue{
-  list *first;
-  list *last;
-  int size;
+struct queue
+{
+    list *first;
+    list *last;
+    int size;
 };
 
-struct list{
-  list *next;
-  list *prev;
-  pthread_t *thread;
+struct list
+{
+    list *next;
+    list *prev;
+    pthread_t *thread;
 };
 
 void create(queue **q);
 
-void push(queue *q, pthread_t* thread);
+void push(queue *q, pthread_t *thread);
 void pop(queue *q);
 
 bool isEmpty(const queue *q);
