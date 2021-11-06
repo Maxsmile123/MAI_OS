@@ -12,28 +12,40 @@
 
 
 
-### Вариант 5. Отсортировать массив целых чисел при помощи четно-нечетной сортировки Бетчер.
+### Вариант 5. Отсортировать массив целых чисел при помощи четно-нечетной сортировки Бетчера.
 
 ---
 Выполнено под OC Linux.
 
 Запускат следует так: 
-```bash
+```shell
 gcc lab3.c queue.h queue.c -lm -lpthread
 ```
 Программа на вход принимает количество потоков. Отрицательное число означает, что количество потоков неограниченно.
 
-Примеры использования:
-```bash
+### Примеры использования:
+```shell
 ./a.out                                 
 Limit of threads is not set. Default value is 10.
-Enter the size of array : 3
-Enter 3 numbers of array : 5 6 1
-1 5 6 
+Select an action:
+1. Read the array
+2. Generate an array automatically
+1
+Enter array :
+565 867 545 1
+Sorted array:
+1 545 565 867
 ```
-```bash
+```shell
 ./a.out -t 5
-Enter the size of array : 5
-Enter 5 numbers of array : 34 56 10 89 90
-10 34 56 89 90 
+Select an action:
+1. Read the array
+2. Generate an array automatically
+2
+Enter the size of array:30
+Enter a range of numbers in the array. Max value is 2147483647
+100
+Your array: 15 98 -16 -71 -41 38 -89 61 46 -84 -28 -41 -77 37 55 84 -9 40 3 50 26 13 -6 -85 41 91 9 76 28 2
+Sorted array:
+-89 -85 -84 -77 -71 -41 -41 -28 -16 -9 -6 2 3 9 13 15 26 28 37 38 40 41 46 50 55 61 76 84 91 98
 ```

@@ -309,6 +309,7 @@ int *get_array(int *size)
     int capacity = 1;
     int c;
     int *a = (int *) malloc(sizeof(int));
+    c = getchar();
     printf("Enter array : \n");
     while ((c = fpeek()) != '\n' && c != EOF) {
         scanf("%d", &number);
