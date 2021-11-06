@@ -17,7 +17,7 @@
 ---
 Выполнено под OC Linux.
 
-Запускат следует так: 
+Запускать следует так: 
 ```shell
 gcc lab3.c queue.h queue.c -lm -lpthread
 ```
