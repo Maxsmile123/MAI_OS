@@ -57,6 +57,7 @@ int str_to_int(char *a)
     return res;
 }
 
+
 int max_from_array(int *a, const int size)
 {
     int max = INT_MIN;
@@ -66,45 +67,7 @@ int max_from_array(int *a, const int size)
     return max;
 }
 
-void *shuffle(void *arg)
-{
-    struct packet *received = (struct packet *) arg;
 
-    int half = (int) (received->l + received->r) / 2;
-    int tmp[received->size];
-    int i;
-    int win_right = 0;
-    int win_left = 0;
-
-    for (i = 0; i < received->size; i++)
-        tmp[i] = received->a[i];
-
-    while (win_right + win_left != (received->r - received->l) + 1) {
-        if (win_left == (received->r - received->l + 1) / 2) {
-            tmp[received->l + win_right + win_left] = received->a[half + 1 + win_right];
-            win_right++;
-            continue;
-        }
-        if (win_right == (received->r - received->l + 1) / 2) {
-            tmp[received->l + win_right + win_left] = received->a[received->l + win_left];
-            win_left++;
-            continue;
-        }
-        if (received->a[received->l + win_left] > received->a[half + 1 + win_right]) {
-            tmp[received->l + win_right + win_left] = received->a[half + 1 + win_right];
-            win_right++;
-        }
-        else {
-            tmp[received->l + win_right + win_left] = received->a[received->l + win_left];
-            win_left++;
-        }
-    }
-    for (i = 0; i < received->size; i++)
-        received->a[i] = tmp[i];
-
-    free(received);
-    return NULL;
-}
 
 void unshuffle(int a[], const int size, int l, int r)
 {
@@ -140,7 +103,6 @@ void OddEvenSplit(int a[], const int size, const int max_threads, queue *q)
     int r = size - 1;
     if (r == l + 1) compexch(&a[l], &a[r]);
     if (r < l + 2) return;
-    unshuffle(a, size, l, r);
     if(max_threads < 0) {
         for (int i = 0; i < log2(size); i++) {
             int j = pow(2, i);
@@ -221,13 +183,53 @@ void OddEvenSplit(int a[], const int size, const int max_threads, queue *q)
     }
 }
 
+void *shuffle(void *arg)
+{
+    struct packet *received = (struct packet *) arg;
+
+    int half = (int) (received->l + received->r) / 2;
+    int tmp[received->size];
+    int i;
+    int win_right = 0;
+    int win_left = 0;
+
+    for (i = 0; i < received->size; i++)
+        tmp[i] = received->a[i];
+
+    while (win_right + win_left != (received->r - received->l) + 1) {
+        if (win_left == (received->r - received->l + 1) / 2) {
+            tmp[received->l + win_right + win_left] = received->a[half + 1 + win_right];
+            win_right++;
+            continue;
+        }
+        if (win_right == (received->r - received->l + 1) / 2) {
+            tmp[received->l + win_right + win_left] = received->a[received->l + win_left];
+            win_left++;
+            continue;
+        }
+        if (received->a[received->l + win_left] > received->a[half + 1 + win_right]) {
+            tmp[received->l + win_right + win_left] = received->a[half + 1 + win_right];
+            win_right++;
+        }
+        else {
+            tmp[received->l + win_right + win_left] = received->a[received->l + win_left];
+            win_left++;
+        }
+    }
+    for (i = 0; i < received->size; i++)
+        received->a[i] = tmp[i];
+
+    free(received);
+    return NULL;
+}
+
 void sort(int a[], const int size, const int max_threads, queue *q)
 {
     OddEvenSplit(a, size, max_threads, q);
     int l, r;
     int i, j;
     if (max_threads < 0) { // no limit
-        for (i = 1; i <= log2(size); i++) {
+        for (i = 1; i < log2(size); i++) {
             j = pow(2, i + 1);
             for (l = 0, r = j - 1; r < size; l += j, r += j) {
                 struct packet *s = malloc(sizeof(struct packet));
@@ -324,8 +326,8 @@ int *get_array(int *size)
 
 int *generate_array(int size)
 {
-    unsigned int range;
-    printf("Enter a range of numbers in the array. Max value is %d \n", INT_MAX);
+    int range;
+    printf("Enter a range of numbers in the array. Max value is %d \n", 32767 / 2);
     scanf("%d", &range);
     int *a = (int *) malloc(size * sizeof(int));
     printf("Your array: ");
@@ -379,10 +381,12 @@ int main(int argc, char *argv[])
     choise = getchar();
     while (flag) {
         switch (choise) {
-            case '1':a = get_array(&size);
+            case '1':
+                a = get_array(&size);
                 flag = 0;
                 break;
-            case '2':printf("Enter the size of array: ");
+            case '2':
+                printf("Enter the size of array: ");
                 scanf("%d", &size);
                 a = generate_array(size);
                 flag = 0;
@@ -406,7 +410,10 @@ int main(int argc, char *argv[])
     queue *q;
     create(&q);
 
+    clock_t begin = clock();
     sort(a, sizeOfArray, max_threads, q);
+    clock_t end = clock();
+    printf("%lf ",(double)(end - begin) / CLOCKS_PER_SEC );
 
     printf("Sorted array: \n");
     for (int i = 0; i < size; i++)
