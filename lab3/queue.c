@@ -33,7 +33,6 @@ void pop(queue *q)
 
 void push(queue *q, pthread_t *pt)
 {
-
     if (isEmpty(q)) {
         q->first = malloc(sizeof(list));
         q->first->next = NULL;

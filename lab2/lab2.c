@@ -41,15 +41,15 @@ char* get_string(int *len) {
 
 int main(void)
 {
-    char filename[150];
+    char *filename;
     int fd1[2];
     int fd2[2];
     int counter = 1; // Четная или нечётная строка
     printf("Enter filename for first process\n");
-    scanf("%s", filename);
+    filename = get_string(int len);
     int file1 = open(filename, O_RDWR | O_CREAT, 0777);
     printf("Enter filename for second process\n");
-    scanf("%s", filename);
+    filename = get_string(int len);
     int file2 = open(filename, O_RDWR | O_CREAT, 0777);
 
     if(file1 < 0 | file2 < 0){

@@ -3,7 +3,6 @@
 # $1 = m(Use medium value),
 
 gcc lab3.c queue.h queue.c -lm -pthread
-echo "hello" > dataset.txt
 
 for ((i = 1; i < 60; i++)) # i = number of threads
 do
