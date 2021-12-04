@@ -41,35 +41,37 @@ pid_t create_child(char *filename, int type)
     return pid;
 }
 
-char* get_string(int *len) {
-    *len = 0;
-    int capacity = 1; // 1, так как точно будет '\0'
-    char *s = (char*) malloc(sizeof(char));
+char *ufgets(FILE *stream)
+{
+    unsigned int maxlen = 128, size = 128;
+    char *buffer = (char *)malloc(maxlen);
 
-    char c = getchar();
-    if(c == '\n') c = getchar();
+    if (buffer != NULL) /* NULL if malloc() fails */
+    {
+        int ch = EOF;
+        int pos = 0;
 
-    while (c != '\n') {
-        s[(*len)++] = c; // заносим в строку новый символ
-
-        if (*len >= capacity) {
-            capacity *= 2;
-            s = (char*) realloc(s, capacity * sizeof(char));
+        /* Read input one character at a time, resizing the buffer as necessary */
+        while ((ch = fgetc(stream)) != '\n' && ch != EOF && !feof(stream))
+        {
+            buffer[pos++] = ch;
+            if (pos == size) /* Next character to be inserted needs more memory */
+            {
+                size = pos + maxlen;
+                buffer = (char *)realloc(buffer, size);
+            }
         }
-
-        c = getchar();
+        buffer[pos] = '\0'; /* Null-terminate the completed string */
     }
-    s[*len] = '\0';
-    return s;
+    return buffer;
 }
 
 int main(int argc, char *argv[])
 {
-    int len;
     printf("Enter filename for first process\n");
-    char *filename1 = get_string(&len);
+    char *filename1 = ufgets(stdin);
     printf("Enter filename for second process\n");
-    char *filename2 = get_string(&len);
+    char *filename2 = ufgets(stdin);
 
     int input = open("./input.txt", O_RDWR | O_CREAT | O_TRUNC, 0777);
     if (input < 0) {
@@ -79,10 +81,10 @@ int main(int argc, char *argv[])
 
     char *msg;
     printf("Enter strings to process: \n");
-    while ((msg = get_string(&len)) && msg[0] != '\0')
+    while ((msg = ufgets(stdin)) && msg[0] != '\0')
     {
-        msg[len] = '\n';
-        write(input, msg, sizeof(char) * len);
+        msg[strlen(msg)] = '\n';
+        write(input, msg, sizeof(char) * strlen(msg));
     }
 
     pid_t pid1, pid2;
