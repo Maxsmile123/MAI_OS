@@ -1,5 +1,5 @@
-#include "lib1.h"
-#include "lib2.h"
+#include "library/lib1.h"
+#include "library/lib2.h"
 #include <stdio.h>
 #include <dlfcn.h>
 
