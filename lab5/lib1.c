@@ -1,4 +1,5 @@
 #include "lib1.h"
+#include <math.h>
 
 
 // f'(x) = (f(A + deltaX) – f(A))/deltaX

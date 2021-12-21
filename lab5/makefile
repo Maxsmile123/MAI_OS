@@ -1,24 +1,9 @@
-LIBRARY_PATH=/root/MAI_OS/lab5/library
-MAIN_PATH=/root/MAI_OS/lab5
+all:
+	gcc -fPIC -c lib1.c -o d1.o 
+	gcc -fPIC -c lib2.c -o d2.o
 
-LIBRARY_COMPILE_FLAGS=-Wall
-MAIN_COMPILE_FLAGS=-Wall
-SANITIZE_FLAGS=-fsanitize=address -fsanitize=undefined
+	gcc -shared -o libd1.so d1.o -lm
+	gcc -shared -o libd2.so d2.o -lm
 
-LIB_NAME=test
-
-PROGRAM_NAME=program
-
-first:
-	gcc $(LIBRARY_COMPILE_FLAGS) -c -fPIC $(LIBRARY_PATH)/*.c
-	gcc -shared -o $(LIBRARY_PATH)/lib$(LIB_NAME).so *.o
-	gcc $(MAIN_COMPILE_FLAGS) -c $(MAIN_PATH)/main1.c
-	gcc $(SANITIZE_FLAGS) -o $(PROGRAM_NAME) *.o -L$(LIBRARY_PATH) -l$(LIB_NAME) -Wl,-rpath,$(LIBRARY_PATH)
-
-second:
-	gcc $(LIBRARY_COMPILE_FLAGS) -c -fPIC $(LIBRARY_PATH)/*.c
-	gcc -shared -o $(LIBRARY_PATH)/lib$(LIB_NAME).so *.o
-	gcc $(MAIN_COMPILE_FLAGS) -o $(PROGRAM_NAME) $(MAIN_PATH)/main2.c -ldl
-
-clean:
-	rm *.o
+	gcc prog2.c -L. -ldl -o main2.out -Wl,-rpath -Wl,.
+	gcc prog1.c -L. -ld1 -o main1.out -Wl,-rpath -Wl,.
