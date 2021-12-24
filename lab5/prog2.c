@@ -11,10 +11,12 @@ void help(){
 }
 
 int main(){
+    help();
     int command, curLib = 0;
-    char* libs[] = {"lib1.so", "lib2.so"};
+    char* libs[] = {"./libd1.so", "./libd2.so"};
     void* lib_handler = dlopen(libs[curLib], RTLD_LAZY); // initial library is first (with implementation1)
     if (lib_handler == NULL){
+        printf("sorry");
         return 1;
     }
     float (*Derivative)(float A, float deltaX);

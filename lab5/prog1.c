@@ -10,15 +10,16 @@ void help(){
 
 int main(void){
     int arg;
+    help();
     while(scanf("%d ", &arg) != EOF){
         if(arg == 1){
             float A, deltaX;
             scanf("%f %f", &A, &deltaX);
-            printf("%f", Derivative(A, deltaX));
+            printf("%f\n", Derivative(A, deltaX));
         } else if (arg == 2){
             int k;
             scanf("%d", &k);
-            printf("%f", Pi(k));
+            printf("%f\n", Pi(k));
         } else{
             help();
             return -1;
