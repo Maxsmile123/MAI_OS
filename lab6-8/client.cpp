@@ -1,166 +1,193 @@
-// Вычислительный узел
+// Управляющий узел
 #include <iostream>
 #include <string>
 #include "zmq.hpp"
 #include <unistd.h>
 #include <csignal>
-#include "zmq.h"
 #include "message.h"
 #include "ZMQTools.h"
 
+// apt-get install libzmq3-dev
+// g++ server.cpp -lzmq -o server message.cpp ZMQTools.cpp
+//	g++ client.cpp -lzmq -o client message.cpp ZMQTools.cpp
+// Запуск: ./client
+
 static zmq::context_t context;
-static zmq::socket_t pub_sock_to_children(context, ZMQ_PUB);
-static zmq::socket_t pub_sock_to_parent(context, ZMQ_PUB);
+
+static zmq::socket_t pub_sock(context, ZMQ_PUB);
 static zmq::socket_t sub_sock(context, ZMQ_SUB);
 
-static std::string pub_socket_to_children_name;
-static std::string pub_socket_to_server_name;
+static std::string socket_name;
+static std::vector<std::string> sockets_of_children;
 
-static std::string parent_socket_name;
-static std::vector<std::string> children_sockets_name;
+void server_init(){
+    try {
+        socket_name = create_name_of_socket(0);
+        pub_sock.bind(socket_name);
 
-static int node_id;
-static bool run;
+        // setsockopt - изменить свойства сокета. Обязательным для SUB явлется сво-во ZMQ_SUBSCRIBE
+        // Который определяет префикс, с которого должно начинаться сбщ,
+        // чтобы данный подписчик посчитал нужным его принять
 
-// node_id, parent_socket_name
-void client_init(int argc, char* argv[]){
-    std::stringstream sstream;
-    sstream << argv[1];
-    sstream >> node_id;
+        sub_sock.setsockopt(ZMQ_SUBSCRIBE, 0, 0);
+        int timeout = 1000;
+        // Максимальное время ожидания приёма - 1000 мс
+        sub_sock.setsockopt(ZMQ_RCVTIMEO, timeout);
+    }
+    catch (zmq::error_t) {
+        std::cout << "Error:ZMQ: " << zmq_strerror(errno) << std::endl;
+        exit(-1);
+    }
 
-    parent_socket_name = argv[2];
-
-    pub_socket_to_children_name = create_name_of_socket_to_children(node_id);
-    pub_socket_to_server_name = create_name_of_socket_to_parent(node_id);
-
-    pub_sock_to_children.bind(pub_socket_to_children_name);
-    pub_sock_to_parent.bind(pub_socket_to_server_name);
-
-    sub_sock.connect(parent_socket_name);
-    sub_sock.setsockopt(ZMQ_SUBSCRIBE, 0, 0);
-
-    run = true;
 }
 
-void handle_create(zmq::message_t& data) {
-    create_body body = get_message_create(data);
-    int child_id = body.child_id;
-    int fork_pid = fork();
-    // Ошибка
-    if(fork_pid == -1) {
-        zmq::message_t ans = fill_message_create_answer(-1, strerror(errno));
-        pub_sock_to_parent.send(ans);
+
+bool receive_msg(zmq::message_t& msg){
+    zmq::recv_result_t res;
+    res = sub_sock.recv(msg);
+
+    return res.has_value();
+}
+
+bool is_exists(int id) {
+    zmq::message_t data = fill_message_ping(id);
+    pub_sock.send(data);
+
+    zmq::message_t receive_data;
+    header_t* header;
+
+    if(!receive_msg(receive_data))
+        return false;
+
+    ping_body_answer ans = get_message_ping_answer(receive_data);
+    if(ans.src_id != id)
+        return false;
+
+    return true;
+}
+
+void handle_create(){
+    int new_node_pid = -1;
+    int parent_id, child_id;
+    std::cin >> child_id >> parent_id;
+
+    if(parent_id != -1 && !is_exists(parent_id)){
+        std::cout << "Error: Parent not found" << std::endl;
         return;
     }
-    // Процесс ребенка
-    if(fork_pid == 0) {
-        std::stringstream sstream;
-        sstream << child_id;
-        execl("client", "client", sstream.str().c_str(), pub_socket_to_children_name.c_str(), NULL);
+    if(is_exists(child_id)){
+        std::cout << "Error: Already exists" << std::endl;
+        return;
     }
 
-    std::string parent_pub_socket_name = create_name_of_socket_to_parent(child_id);
-    children_sockets_name.push_back(parent_pub_socket_name);
-    sub_sock.connect(parent_pub_socket_name);
+    if(parent_id == -1){
+        // Родитель - Управляющий узел
+        int fork_pid = fork();
+        // Ошибка fork
+        if(fork_pid == -1) {
+            std::cout << "Error:fork: " << strerror(errno) << std::endl;
+            return;
+        }
+        // Процесс ребенка
+        if(fork_pid == 0) {
+            std::stringstream sstream;
+            sstream << child_id;
+            execl("server", "server", sstream.str().c_str(), socket_name.c_str(), NULL);
+        }
+        // Подписываемся на дочерний узел
+        std::string parent_pub_socket_name = create_name_of_socket_to_parent(child_id);
+        sockets_of_children.push_back(parent_pub_socket_name);
+        sub_sock.connect(parent_pub_socket_name);
 
-    // Отсылаем ответ, что все ОК
-    zmq::message_t ans = fill_message_create_answer(fork_pid, "");
-    pub_sock_to_parent.send(ans);
-}
+        new_node_pid = fork_pid;
+    }
+    else {
+        // Отослать комманду
+        zmq::message_t data = fill_message_create(parent_id, child_id);
+        pub_sock.send(data);
 
-void handle_remove(zmq::message_t& data) {
-    header_t* header = get_message_header(data);
-    // Отсылаем детям
-    header->to_id_node = BROADCAST_ID;
-    pub_sock_to_children.send(data);
-    // Удаляем текущий узел
-    run = false;
-}
+        zmq::message_t receive_data;
+        receive_msg(receive_data);
+        create_body_answer ans = get_message_create_answer(receive_data);
 
-void handle_exec(zmq::message_t& data) {
-    exec_body body = get_message_exec(data);
-    std::vector<int> entries;
+        if(ans.pid == -1){
+            std::cout << "Error:remote_create: " << ans.error << std::endl;
+            return;
+        }
 
-    std::string::size_type pos = 0;
-    while(std::string::npos != (pos = body.text.find(body.pattern, pos))){
-        entries.push_back(pos);
-        ++pos;
+        new_node_pid = ans.pid;
     }
 
-    zmq::message_t ans = fill_message_exec_answer(entries);
-    pub_sock_to_parent.send(ans);
+    std::cout << "OK: " << new_node_pid << std::endl;
 }
 
-void handle_ping(zmq::message_t& data) {
-    zmq::message_t ans = fill_message_ping_answer(node_id);
-    pub_sock_to_parent.send(ans);
+void handle_exec() {
+    /*  > exec id
+        > text_string
+        > pattern_string
+        [result] – номера позиций, где найден образец, разделенный точкой с запятой
+     */
+    std::string text, pattern;
+    int dest_id;
+
+    std::cin >> dest_id;
+    std::cin.get();
+    std::getline(std::cin, text);
+    std::getline(std::cin, pattern);
+
+    if(!is_exists(dest_id)) {
+        std::cout << "Error:" << dest_id << ": Not found" << std::endl;
+        return;
+    }
+
+    zmq::message_t data = fill_message_exec(dest_id, text, pattern);
+    pub_sock.send(data);
+
+    zmq::message_t receive_data;
+    header_t* header;
+    receive_msg(receive_data);
+    exec_body_answer ans = get_message_exec_answer(receive_data);
+
+    std::cout << "OK:" << dest_id << ": [";
+    if(ans.entries.size() > 0)
+        std::cout << ans.entries[0];
+    for(int i = 1; i < ans.entries.size(); ++i) {
+        std::cout << "; " << ans.entries[i];
+    }
+    std::cout << "]" << std::endl;
 }
 
-void handle_task(zmq::message_t& data){
-    header_t* header = get_message_header(data);
-    if(header->type == MSG_CREATE)
-        handle_create(data);
-    else if(header->type == MSG_REMOVE)
-        handle_remove(data);
-    else if(header->type == MSG_EXEC)
-        handle_exec(data);
-    else if(header->type == MSG_PING)
-        handle_ping(data);
+void handle_ping() {
+    int dest_id;
+    std::cin >> dest_id;
+    if(is_exists(dest_id))
+        std::cout << "OK: 1" << std::endl;
+    else
+        std::cout << "Error: Not found" << std::endl;
 }
 
-void client_run(){
-    while(run){
-        try {
-            zmq::message_t data;
-            sub_sock.recv(data);
-            header_t* header = get_message_header(data);
-            // Если сообщение адресовано нам
-            if(header->to_id_node == node_id || header->to_id_node == BROADCAST_ID)
-                handle_task(data);
-            // Иначе пропускаем его дальше
-            if(header->to_id_node != node_id){
-                if(header->dir == DIR_TO_SERVER)
-                    pub_sock_to_parent.send(data);
-                else
-                    pub_sock_to_children.send(data);
+void server_run(){
+    std::string input_cmd;
+    while(std::cin >> input_cmd) {
+        try{
+            if(input_cmd == "create")
+                handle_create();
+            else if(input_cmd == "exec")
+                handle_exec();
+            else if(input_cmd == "ping")
+                handle_ping();
+            else {
+                std::cout << "Error: данной команды нет!" << std::endl;
             }
         }
         catch(zmq::error_t) {
-            std::cout << zmq_strerror(errno) << std::endl;
+            std::cout << "Error:ZMQ: " << zmq_strerror(errno) << std::endl;
         }
-
     }
 }
 
-void client_deinit(){
-    // Нужно удалить детей
-    zmq::message_t msg = fill_message_remove(BROADCAST_ID);
-    pub_sock_to_children.send(msg);
 
-    // Закрываемся сами
-    pub_sock_to_children.unbind(pub_socket_to_children_name);
-    pub_sock_to_children.close();
-
-    pub_sock_to_parent.unbind(pub_socket_to_server_name);
-    pub_sock_to_parent.close();
-
-    for(auto& name : children_sockets_name)
-        sub_sock.disconnect(name);
-    sub_sock.close();
+int main() {
+    server_init();
+    server_run();
 }
-
-void client_term(int){
-    client_deinit();
-    exit(0);
-}
-
-int main(int argc, char* argv[]) {
-    std::signal(SIGINT, client_term);
-    std::signal(SIGTERM, client_term);
-
-    client_init(argc, argv);
-    client_run();
-    client_deinit();
-    return 0;
-}
-
