@@ -4,7 +4,7 @@
 #include "zmq.hpp"
 #include <unistd.h>
 #include <csignal>
-#include "message.h"
+#include "msg.h"
 #include "ZMQTools.h"
 
 
@@ -42,17 +42,15 @@ void client_init(int argc, char* argv[]){
     run = true;
 }
 
-void handle_create(zmq::message_t& data) {
+void create(zmq::message_t& data) {
     create_body body = get_message_create(data);
     int child_id = body.child_id;
     int fork_pid = fork();
-    // Ошибка
     if(fork_pid == -1) {
         zmq::message_t ans = fill_message_create_answer(-1, strerror(errno));
         pub_sock_to_parent.send(ans);
         return;
     }
-    // Процесс ребенка
     if(fork_pid == 0) {
         std::stringstream sstream;
         sstream << child_id;
@@ -63,12 +61,11 @@ void handle_create(zmq::message_t& data) {
     children_sockets_name.push_back(parent_pub_socket_name);
     sub_sock.connect(parent_pub_socket_name);
 
-    // Отсылаем ответ, что все ОК
     zmq::message_t ans = fill_message_create_answer(fork_pid, "");
     pub_sock_to_parent.send(ans);
 }
 
-void handle_exec(zmq::message_t& data) {
+void exec(zmq::message_t& data) {
     exec_body body = get_message_exec(data);
     std::vector<int> entries;
 
@@ -82,19 +79,19 @@ void handle_exec(zmq::message_t& data) {
     pub_sock_to_parent.send(ans);
 }
 
-void handle_ping(zmq::message_t& data) {
+void ping(zmq::message_t& data) {
     zmq::message_t ans = fill_message_ping_answer(node_id);
     pub_sock_to_parent.send(ans);
 }
 
-void handle_task(zmq::message_t& data){
+void task(zmq::message_t& data){
     header_t* header = get_message_header(data);
     if(header->type == MSG_CREATE)
-        handle_create(data);
+        create(data);
     else if(header->type == MSG_EXEC)
-        handle_exec(data);
+        exec(data);
     else if(header->type == MSG_PING)
-        handle_ping(data);
+        ping(data);
 }
 
 void client_run(){
@@ -105,7 +102,7 @@ void client_run(){
             header_t* header = get_message_header(data);
             // Если сообщение адресовано нам
             if(header->to_id_node == node_id || header->to_id_node == BROADCAST_ID)
-                handle_task(data);
+                task(data);
             // Иначе пропускаем его дальше
             if(header->to_id_node != node_id){
                 if(header->dir == DIR_TO_SERVER)

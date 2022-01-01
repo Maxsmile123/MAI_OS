@@ -4,13 +4,9 @@
 #include "zmq.hpp"
 #include <unistd.h>
 #include <csignal>
-#include "message.h"
+#include "msg.h"
 #include "ZMQTools.h"
 
-// apt-get install libzmq3-dev
-// g++ server.cpp -lzmq -o server message.cpp ZMQTools.cpp
-//	g++ client.cpp -lzmq -o client message.cpp ZMQTools.cpp
-// Запуск: ./client
 
 static zmq::context_t context;
 
@@ -66,7 +62,7 @@ bool is_exists(int id) {
     return true;
 }
 
-void handle_create(){
+void create(){
     int new_node_pid = -1;
     int parent_id, child_id;
     std::cin >> child_id >> parent_id;
@@ -80,15 +76,12 @@ void handle_create(){
         return;
     }
 
-    if(parent_id == -1){
-        // Родитель - Управляющий узел
+    if(parent_id == -1){ // Управляющий узел создаёт дочерний процесс
         int fork_pid = fork();
-        // Ошибка fork
         if(fork_pid == -1) {
             std::cout << "Error:fork: " << strerror(errno) << std::endl;
             return;
         }
-        // Процесс ребенка
         if(fork_pid == 0) {
             std::stringstream sstream;
             sstream << child_id;
@@ -102,7 +95,7 @@ void handle_create(){
         new_node_pid = fork_pid;
     }
     else {
-        // Отослать комманду
+        // иначе отсылкаем запрос всем детям(вниз по дереву)
         zmq::message_t data = fill_message_create(parent_id, child_id);
         pub_sock.send(data);
 
@@ -121,7 +114,7 @@ void handle_create(){
     std::cout << "OK: " << new_node_pid << std::endl;
 }
 
-void handle_exec() {
+void exec() {
     /*  > exec id
         > text_string
         > pattern_string
@@ -157,7 +150,7 @@ void handle_exec() {
     std::cout << "]" << std::endl;
 }
 
-void handle_ping() {
+void ping() {
     int dest_id;
     std::cin >> dest_id;
     if(is_exists(dest_id))
@@ -171,11 +164,11 @@ void server_run(){
     while(std::cin >> input_cmd) {
         try{
             if(input_cmd == "create")
-                handle_create();
+                create();
             else if(input_cmd == "exec")
-                handle_exec();
+                exec();
             else if(input_cmd == "ping")
-                handle_ping();
+                ping();
             else {
                 std::cout << "Error: данной команды нет!" << std::endl;
             }
